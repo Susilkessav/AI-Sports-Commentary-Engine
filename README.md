@@ -34,41 +34,7 @@ This decoupled orchestration allows the system to scale infinitely. If you wante
 
 Here is exactly how data travels through the system from the real world to your screen. Below is a detailed sequence diagram breaking down the underlying process.
 
-```mermaid
-sequenceDiagram
-    participant ESPN as "ESPN API"
-    participant Producer as "Ingestion Script"
-    participant KafkaIn as "Kafka Game Events"
-    participant LLMBase as "LLM Commentator"
-    participant LLMAPI as "LLM Endpoint"
-    participant KafkaOut as "Kafka Output"
-    participant API as "FastAPI Server"
-    participant UI as "Streamlit Dashboard"
-
-    loop Every 10 Seconds
-        Producer->>ESPN: "HTTP GET scoreboard"
-        ESPN-->>Producer: "JSON Live Games"
-        Producer->>KafkaIn: "Produce game state event"
-        
-        Producer->>ESPN: "HTTP GET summary"
-        ESPN-->>Producer: "JSON Recent Plays"
-        
-        opt "If Play is New Hash Check"
-            Producer->>KafkaIn: "Produce play event"
-        end
-    end
-    
-    KafkaIn->>LLMBase: "Consume play event"
-    LLMBase->>LLMBase: "Add play to contextual memory"
-    LLMBase->>LLMAPI: "Send Prompt"
-    LLMAPI-->>LLMBase: "1 to 2 sentences of commentary"
-    LLMBase->>KafkaOut: "Produce message plus commentary"
-    
-    KafkaOut->>API: "Consume commentary msg"
-    API->>API: "Append to rolling history"
-    API->>UI: "Broadcast via WebSocket"
-    UI->>UI: "Render new commentary in Feed"
-```
+![System Workflow Architecture](sequence-diagram.png)
 
 First, the Ingestion Producer wakes up periodically and polls the public sports APIs for live play by play updates. Whenever it spots a new event, it formats it into a standard JSON payload and publishes it directly to the first Kafka topic.
 
