@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+.env
+
+# Persistent state
+seen_hashes.jsonl
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store

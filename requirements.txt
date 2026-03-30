@@ -1,0 +1,23 @@
+# Core
+kafka-python-ng==2.2.3
+requests==2.31.0
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+websocket-client==1.8.0
+streamlit==1.45.1
+
+# LLM providers — install only what you need
+openai==2.30.0           # for LLM_PROVIDER = "openai"
+anthropic==0.86.0        # for LLM_PROVIDER = "claude"
+# ollama runs as a local server — no pip package needed
+
+# TTS (optional — install only if using TTS_ENGINE)
+pyttsx3==2.90            # for TTS_ENGINE = "pyttsx3"
+gTTS==2.5.1              # for TTS_ENGINE = "gtts"
+
+# Testing
+pytest==8.2.0
+
+# Optional extras
+python-dotenv==1.0.1     # load secrets from .env file
+tenacity==8.3.0          # retry logic for LLM calls

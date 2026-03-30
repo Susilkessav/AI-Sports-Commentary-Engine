@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Sports Commentary</title>
+  <style>
+    /* ── Reset & base ──────────────────────────────────── */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --bg:       #0e1117;
+      --surface:  #1a1d2e;
+      --card:     #1a1d2e;
+      --border:   #2a2d3e;
+      --text:     #e0e0e0;
+      --muted:    #888;
+      --accent:   #4caf50;
+      --accent2:  #2196f3;
+      --scoring:  #e53935;
+      --topbar:   #0a0c12;
+      --orange:   #ff8a65;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.5;
+    }
+
+    /* ── Top bar ───────────────────────────────────────── */
+    .topbar {
+      position: sticky; top: 0; z-index: 100;
+      display: flex; align-items: center; gap: 1rem;
+      padding: 0.75rem 1.5rem;
+      background: var(--topbar);
+      border-bottom: 1px solid var(--border);
+    }
+    .topbar h1 { font-size: 1.1rem; font-weight: 600; white-space: nowrap; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 0.35rem;
+      padding: 0.25rem 0.75rem; border-radius: 999px;
+      font-size: 0.75rem; font-weight: 600;
+    }
+    .badge-live   { background: #1b3a1b; color: var(--accent); }
+    .badge-live .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: var(--accent);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+    .badge-kafka  { background: #1a2940; color: var(--accent2); }
+    .badge-scoring { background: var(--scoring); color: #fff; font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 6px; }
+    .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 1rem; }
+    .topbar-right .last-update { color: var(--muted); font-size: 0.8rem; }
+
+    /* Audio toggle */
+    .audio-toggle {
+      background: var(--surface); color: var(--muted);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 4px 10px; font-size: 0.85rem; cursor: pointer;
+      outline: none; transition: all 0.2s;
+    }
+    .audio-toggle:hover { border-color: var(--accent2); }
+    .audio-toggle.active { color: var(--accent); border-color: var(--accent); }
+
+    /* Sport selector */
+    .sport-select {
+      background: var(--surface); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      padding: 4px 10px; font-size: 0.8rem; cursor: pointer;
+      outline: none;
+    }
+    .sport-select:focus { border-color: var(--accent2); }
+
+    /* ── Layout ────────────────────────────────────────── */
+    .container { max-width: 900px; margin: 0 auto; padding: 1.5rem; }
+
+    /* ── Score card ────────────────────────────────────── */
+    .score-card {
+      background: var(--card); border-radius: 16px; padding: 1.5rem 2rem;
+      border: 1px solid var(--border); margin-bottom: 1.5rem;
+    }
+    .score-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1.25rem;
+    }
+    .game-info { color: var(--muted); font-size: 0.85rem; }
+    .quarter-badge {
+      background: var(--scoring); color: #fff; padding: 0.3rem 0.75rem;
+      border-radius: 8px; font-size: 0.8rem; font-weight: 600;
+    }
+    .score-body {
+      display: flex; align-items: center; justify-content: center; gap: 2rem;
+      padding: 0.5rem 0 1.25rem;
+    }
+    .team { text-align: center; min-width: 120px; }
+    .team-logo {
+      width: 52px; height: 52px; border-radius: 50%; margin: 0 auto 0.5rem;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 0.8rem; font-weight: 700; color: #fff;
+    }
+    .team-name { font-weight: 600; font-size: 0.95rem; }
+    .score-center { text-align: center; }
+    .score-numbers { font-size: 2.8rem; font-weight: 800; letter-spacing: 2px; }
+    .score-numbers .dash { color: var(--muted); margin: 0 0.5rem; font-weight: 300; }
+    .score-time { color: var(--muted); font-size: 0.85rem; margin-top: 0.25rem; }
+
+    /* ── Stats row ─────────────────────────────────────── */
+    .stats-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
+      border-top: 1px solid var(--border); padding-top: 1.25rem;
+    }
+    .stat-box {
+      text-align: center; padding: 0.75rem;
+      background: var(--bg); border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+    .stat-value { font-size: 1.3rem; font-weight: 700; }
+    .stat-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.15rem; text-transform: uppercase; letter-spacing: 0.5px; }
+
+    /* ── Commentary section ────────────────────────────── */
+    .section-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 1rem;
+    }
+    .section-title { font-size: 1.1rem; font-weight: 600; color: var(--orange); }
+
+    .commentary-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .commentary-card {
+      background: var(--card); border-radius: 14px; padding: 1rem 1.25rem;
+      border: 1px solid var(--border);
+      animation: fadeIn 0.4s ease;
+      transition: border-color 0.2s;
+    }
+    .commentary-card:hover { border-color: #3a3d5e; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    /* Event type borders */
+    .commentary-card.wicket   { border-left: 3px solid #e53935; }
+    .commentary-card.boundary { border-left: 3px solid #ff9800; }
+    .commentary-card.six      { border-left: 3px solid #ffd600; }
+    .commentary-card.milestone{ border-left: 3px solid #ab47bc; }
+    .commentary-card.scoring  { border-left: 3px solid #4caf50; }
+    .commentary-card.touchdown{ border-left: 3px solid #ff6d00; }
+    .commentary-card.goal     { border-left: 3px solid #2196f3; }
+
+    .commentary-meta {
+      display: flex; align-items: center; gap: 0.5rem;
+      margin-bottom: 0.5rem; font-size: 0.78rem; color: var(--muted);
+    }
+
+    /* Event badges */
+    .event-badge {
+      display: inline-block; padding: 1px 8px; border-radius: 6px;
+      font-size: 0.68rem; font-weight: 600; text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .event-badge.wicket   { background: #3a1515; color: #e53935; }
+    .event-badge.boundary { background: #3a2a15; color: #ff9800; }
+    .event-badge.six      { background: #3a3515; color: #ffd600; }
+    .event-badge.milestone{ background: #2a1535; color: #ab47bc; }
+    .event-badge.scoring  { background: #153a15; color: #4caf50; }
+    .event-badge.touchdown{ background: #3a2215; color: #ff6d00; }
+    .event-badge.goal     { background: #15253a; color: #2196f3; }
+
+    .commentary-text {
+      font-size: 1rem; font-weight: 500; line-height: 1.6;
+      margin-bottom: 0.5rem; max-width: 700px;
+    }
+    .commentary-play { font-size: 0.82rem; color: var(--muted); font-style: italic; }
+
+    /* ── Pipeline status ───────────────────────────────── */
+    .pipeline-title { font-size: 0.85rem; color: var(--muted); margin-bottom: 0.75rem; margin-top: 1.5rem; }
+    .pipeline-row {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;
+      margin-bottom: 2rem;
+    }
+    .pipeline-box {
+      text-align: center; padding: 1rem 0.5rem;
+      background: var(--card); border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .pipeline-icon { font-size: 1.5rem; margin-bottom: 0.3rem; }
+    .pipeline-name { font-size: 0.85rem; font-weight: 600; }
+    .pipeline-detail { font-size: 0.7rem; color: var(--muted); }
+    .pipeline-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      margin: 0.5rem auto 0; background: var(--accent);
+    }
+    .pipeline-dot.off { background: #666; }
+
+    /* ── Empty state ───────────────────────────────────── */
+    .empty-state {
+      text-align: center; padding: 3rem; color: var(--muted);
+    }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .empty-state .msg { font-size: 0.95rem; }
+    .empty-state .hint { font-size: 0.8rem; color: #555; margin-top: 0.5rem; }
+
+    /* ── Responsive ────────────────────────────────────── */
+    @media (max-width: 640px) {
+      .stats-row, .pipeline-row { grid-template-columns: repeat(2, 1fr); }
+      .score-numbers { font-size: 2rem; }
+      .score-body { gap: 1rem; }
+      .topbar { flex-wrap: wrap; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── Top bar ──────────────────────────────────────────── -->
+<header class="topbar">
+  <h1>🎙 AI Sports Commentary</h1>
+  <span class="badge badge-live" id="badge-live">
+    <span class="dot"></span> Live
+  </span>
+  <span class="badge badge-kafka" id="badge-kafka">Kafka</span>
+  <div class="topbar-right">
+    <button class="audio-toggle" id="audio-toggle" onclick="toggleAudio()" title="Toggle voice commentary">🔇 Audio</button>
+    <select class="sport-select" id="sport-select" onchange="changeSport(this.value)">
+      <option value="nba">🏀 NBA</option>
+      <option value="nfl">🏈 NFL</option>
+      <option value="nhl">🏒 NHL</option>
+      <option value="soccer">⚽ Soccer</option>
+      <option value="cricket">🏏 Cricket</option>
+    </select>
+    <span class="last-update" id="last-update">—</span>
+  </div>
+</header>
+
+<!-- ── Main container ──────────────────────────────────── -->
+<div class="container">
+
+  <!-- Score card -->
+  <div class="score-card" id="score-card" style="display:none;">
+    <div class="score-header">
+      <span class="game-info" id="game-info"></span>
+      <span class="quarter-badge" id="quarter-badge"></span>
+    </div>
+    <div class="score-body">
+      <div class="team">
+        <div class="team-logo" id="away-logo" style="background:#555;">AWY</div>
+        <div class="team-name" id="away-name">Away</div>
+      </div>
+      <div class="score-center">
+        <div class="score-numbers">
+          <span id="away-score">0</span>
+          <span class="dash">&ndash;</span>
+          <span id="home-score">0</span>
+        </div>
+        <div class="score-time" id="score-time"></div>
+      </div>
+      <div class="team">
+        <div class="team-logo" id="home-logo" style="background:#555;">HME</div>
+        <div class="team-name" id="home-name">Home</div>
+      </div>
+    </div>
+    <div class="stats-row" id="stats-row">
+      <div class="stat-box"><div class="stat-value" id="stat-plays">0</div><div class="stat-label">Plays</div></div>
+      <div class="stat-box"><div class="stat-value" id="stat-scoring">0%</div><div class="stat-label">Scoring %</div></div>
+      <div class="stat-box"><div class="stat-value" id="stat-period">—</div><div class="stat-label" id="stat-period-label">Period</div></div>
+      <div class="stat-box"><div class="stat-value" id="stat-comments">0</div><div class="stat-label">In Feed</div></div>
+    </div>
+  </div>
+
+  <!-- Commentary section -->
+  <div class="section-header">
+    <span class="section-title">🎤 Live Commentary</span>
+  </div>
+
+  <div class="commentary-list" id="commentary-list">
+    <div class="empty-state" id="empty-state">
+      <div class="icon">🏟</div>
+      <div class="msg">Waiting for live plays&hellip;</div>
+      <div class="hint">Ensure the game producer &amp; LLM commentator are running.</div>
+    </div>
+  </div>
+
+  <!-- Pipeline status -->
+  <div class="pipeline-title">Pipeline status</div>
+  <div class="pipeline-row">
+    <div class="pipeline-box">
+      <div class="pipeline-icon">📡</div>
+      <div class="pipeline-name">ESPN API</div>
+      <div class="pipeline-detail" id="pipe-espn">polling</div>
+      <div class="pipeline-dot" id="dot-espn"></div>
+    </div>
+    <div class="pipeline-box">
+      <div class="pipeline-icon">⚡</div>
+      <div class="pipeline-name">Kafka</div>
+      <div class="pipeline-detail" id="pipe-kafka">game-events</div>
+      <div class="pipeline-dot" id="dot-kafka"></div>
+    </div>
+    <div class="pipeline-box">
+      <div class="pipeline-icon">🤖</div>
+      <div class="pipeline-name">LLM</div>
+      <div class="pipeline-detail" id="pipe-llm">commentator</div>
+      <div class="pipeline-dot" id="dot-llm"></div>
+    </div>
+    <div class="pipeline-box">
+      <div class="pipeline-icon">🌐</div>
+      <div class="pipeline-name">WebSocket</div>
+      <div class="pipeline-detail" id="pipe-ws">connecting…</div>
+      <div class="pipeline-dot off" id="dot-ws"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ── JavaScript ──────────────────────────────────────── -->
+<script>
+const API_BASE = window.location.origin;
+const WS_URL   = `ws://${window.location.host}/ws/commentary`;
+const MAX_ITEMS = 30;
+
+let ws = null;
+let items = [];
+let totalPlays = 0;
+let scoringPlays = 0;
+let activeSport = new URLSearchParams(window.location.search).get('sport') || 'cricket';
+let audioEnabled = false;
+let speechQueue = [];
+let isSpeaking = false;
+let lastUpdateTime = null;
+let reconnectBackoff = 3000;
+
+// ── Sport-aware formatting ─────────────────────────────
+const SPORT_LABELS = {
+  nba: 'NBA', nfl: 'NFL', nhl: 'NHL', soccer: 'Soccer', cricket: 'Cricket'
+};
+
+function formatPeriod(data) {
+  const sport = data.sport || activeSport;
+  const period = data.period || '?';
+  const clock = data.clock || '';
+  if (sport === 'cricket') return `Inn ${period}` + (clock ? ` · ${clock}` : '');
+  if (sport === 'soccer') return clock ? `${clock}'` : '';
+  if (sport === 'nhl') return `P${period}` + (clock ? ` · ${clock}` : '');
+  return `Q${period}` + (clock ? ` · ${clock}` : '');
+}
+
+function formatQuarterBadge(data) {
+  const sport = data.sport || activeSport;
+  const period = data.period || 1;
+  const clock = data.clock || '';
+  if (sport === 'cricket') return `Inn ${period}` + (clock ? ` · ${clock}` : '');
+  if (sport === 'soccer') return clock ? `${clock}'` : '';
+  if (sport === 'nhl') return `Period ${period}` + (clock ? ` · ${clock}` : '');
+  return `Q${period}` + (clock ? ` · ${clock}` : '');
+}
+
+function getSportSeparator(sport) {
+  return sport === 'cricket' ? 'vs' : '@';
+}
+
+function getPeriodLabel(sport) {
+  if (sport === 'cricket') return 'Innings';
+  if (sport === 'nhl') return 'Period';
+  return 'Quarter';
+}
+
+// ── Event type detection ───────────────────────────────
+function getEventInfo(data) {
+  const sport = data.sport || activeSport;
+  const type = (data.type || '').toLowerCase();
+  const play = (data.play || '').toLowerCase();
+
+  if (sport === 'cricket') {
+    if (type.includes('wicket') || play.includes('wicket')) return { cls: 'wicket', label: 'WICKET' };
+    if (type.includes('six') || play.includes('six!')) return { cls: 'six', label: 'SIX' };
+    if (type.includes('boundary') || play.includes('four!')) return { cls: 'boundary', label: 'FOUR' };
+    if (type.includes('century')) return { cls: 'milestone', label: 'CENTURY' };
+    if (type.includes('fifty') || type.includes('milestone')) return { cls: 'milestone', label: 'MILESTONE' };
+  } else if (sport === 'soccer') {
+    if (type.includes('goal') || play.includes('goal')) return { cls: 'goal', label: 'GOAL' };
+  } else if (sport === 'nfl') {
+    if (type.includes('touchdown') || play.includes('touchdown')) return { cls: 'touchdown', label: 'TOUCHDOWN' };
+  } else if (sport === 'nba') {
+    if (type.includes('three point') || play.includes('three')) return { cls: 'scoring', label: '3PT' };
+  }
+
+  if (data.score_value) return { cls: 'scoring', label: 'SCORE' };
+  return { cls: '', label: '' };
+}
+
+// ── Team colors ────────────────────────────────────────
+const TEAM_COLORS = {
+  // NBA
+  'lakers': '#552583', 'celtics': '#007a33', 'warriors': '#1d428a',
+  'nuggets': '#0e2240', 'mavericks': '#00538c', 'thunder': '#007ac1',
+  'bucks': '#00471b', 'suns': '#1d1160', '76ers': '#006bb6',
+  'heat': '#98002e', 'knicks': '#f58426', 'cavaliers': '#860038',
+  'pacers': '#002d62', 'nets': '#000000', 'bulls': '#ce1141',
+  'grizzlies': '#5d76a9', 'kings': '#5a2d81', 'clippers': '#c8102e',
+  'rockets': '#ce1141', 'spurs': '#c4ced4',
+  // NFL
+  'chiefs': '#e31837', 'eagles': '#004c54', 'cowboys': '#003594',
+  'bills': '#00338d', 'ravens': '#241773', '49ers': '#aa0000',
+  'packers': '#203731', 'steelers': '#ffb612',
+  // Cricket IPL
+  'mumbai indians': '#004ba0', 'chennai super kings': '#fdb913',
+  'royal challengers': '#d4213d', 'kolkata knight riders': '#3a225d',
+  'rajasthan royals': '#e73895', 'delhi capitals': '#004c93',
+  'sunrisers hyderabad': '#ff822a', 'punjab kings': '#ed1b24',
+  'gujarat titans': '#1c1c1c', 'lucknow super giants': '#a72056',
+  // International cricket
+  'india': '#0066b3', 'australia': '#ffcd00', 'england': '#1c3a6e',
+  'pakistan': '#01411c', 'south africa': '#007749', 'new zealand': '#000000',
+  // Soccer EPL
+  'arsenal': '#ef0107', 'chelsea': '#034694', 'liverpool': '#c8102e',
+  'manchester city': '#6cabdd', 'manchester united': '#da291c',
+  'tottenham': '#132257',
+};
+
+function getTeamColor(name) {
+  const lower = (name || '').toLowerCase();
+  for (const [key, color] of Object.entries(TEAM_COLORS)) {
+    if (lower.includes(key)) return color;
+  }
+  return '#555';
+}
+
+function getTeamAbbr(name) {
+  if (!name) return '???';
+  const words = name.split(' ');
+  return words[words.length - 1].substring(0, 3).toUpperCase();
+}
+
+// ── Time formatting ────────────────────────────────────
+function formatTimeAgo(date) {
+  if (!date) return '—';
+  const secs = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (secs < 5) return 'just now';
+  if (secs < 60) return `${secs}s ago`;
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`;
+  return `${Math.floor(secs / 3600)}h ago`;
+}
+
+// Update last-update display every second
+setInterval(() => {
+  document.getElementById('last-update').textContent = formatTimeAgo(lastUpdateTime);
+}, 1000);
+
+// ── Audio commentary (browser TTS) ────────────────────
+let selectedVoice = null;
+
+function toggleAudio() {
+  audioEnabled = !audioEnabled;
+  const btn = document.getElementById('audio-toggle');
+  if (audioEnabled) {
+    btn.textContent = '🔊 Audio ON';
+    btn.classList.add('active');
+    // User click satisfies browser autoplay policy
+    speechSynthesis.cancel();
+    speechQueue = [];
+    isSpeaking = false;
+    // Speak the latest commentary once to confirm audio works
+    const latest = items.find(i => i.commentary);
+    const confirmText = latest
+      ? latest.commentary.replace(/^["""]+|["""]+$/g, '').replace(/\s+/g, ' ').trim()
+      : 'Audio commentary enabled. Waiting for live commentary.';
+    const test = new SpeechSynthesisUtterance(confirmText);
+    test.rate = 1.05;
+    test.volume = 1.0;
+    _pickVoice(test);
+    speechSynthesis.speak(test);
+    // From now on, only NEW commentary arriving via WebSocket will be spoken
+  } else {
+    btn.textContent = '🔇 Audio';
+    btn.classList.remove('active');
+    speechSynthesis.cancel();
+    speechQueue = [];
+    isSpeaking = false;
+  }
+}
+
+function _pickVoice(utterance) {
+  if (selectedVoice) { utterance.voice = selectedVoice; return; }
+  const voices = speechSynthesis.getVoices();
+  // Prefer natural-sounding English voices
+  const prefs = ['Daniel', 'Samantha', 'Google UK English Male', 'Google UK English Female', 'Alex', 'Rishi'];
+  for (const name of prefs) {
+    const v = voices.find(v => v.name.includes(name));
+    if (v) { selectedVoice = v; utterance.voice = v; return; }
+  }
+  // Fallback: any English voice
+  const en = voices.find(v => v.lang.startsWith('en'));
+  if (en) { selectedVoice = en; utterance.voice = en; }
+}
+
+function speakCommentary(text) {
+  if (!audioEnabled || !text) return;
+  // Strip surrounding quotes and clean up
+  text = text.replace(/^["""]+|["""]+$/g, '').replace(/\s+/g, ' ').trim();
+  if (!text || text.length < 5) return;
+  speechQueue.push(text);
+  if (!isSpeaking) processQueue();
+}
+
+function processQueue() {
+  if (speechQueue.length === 0) { isSpeaking = false; return; }
+  isSpeaking = true;
+
+  // Chrome bug workaround: cancel stale synth state
+  if (speechSynthesis.speaking) speechSynthesis.cancel();
+
+  const text = speechQueue.shift();
+  const utterance = new SpeechSynthesisUtterance(text);
+  utterance.rate = 1.05;
+  utterance.pitch = 1.0;
+  utterance.volume = 1.0;
+  _pickVoice(utterance);
+
+  utterance.onend = () => { isSpeaking = false; processQueue(); };
+  utterance.onerror = (e) => {
+    console.warn('[TTS] Error:', e.error);
+    isSpeaking = false;
+    processQueue();
+  };
+
+  speechSynthesis.speak(utterance);
+
+  // Chrome workaround: resume synth if it pauses after ~15s
+  const keepAlive = setInterval(() => {
+    if (!speechSynthesis.speaking) { clearInterval(keepAlive); return; }
+    speechSynthesis.pause();
+    speechSynthesis.resume();
+  }, 10000);
+  utterance.onend = () => { clearInterval(keepAlive); isSpeaking = false; processQueue(); };
+  utterance.onerror = (e) => { clearInterval(keepAlive); console.warn('[TTS] Error:', e.error); isSpeaking = false; processQueue(); };
+}
+
+// Pre-load voices (async in some browsers)
+speechSynthesis.onvoiceschanged = () => { speechSynthesis.getVoices(); };
+
+// ── Sport selector ─────────────────────────────────────
+function changeSport(sport) {
+  activeSport = sport;
+  // Persist selection in URL so reload keeps the chosen sport
+  const url = new URL(window.location);
+  url.searchParams.set('sport', sport);
+  history.replaceState(null, '', url);
+  items = [];
+  totalPlays = 0;
+  scoringPlays = 0;
+  document.getElementById('commentary-list').innerHTML = `
+    <div class="empty-state" id="empty-state">
+      <div class="icon">🏟</div>
+      <div class="msg">Waiting for ${SPORT_LABELS[sport] || sport} plays…</div>
+      <div class="hint">Ensure the game producer & LLM commentator are running.</div>
+    </div>`;
+  document.getElementById('score-card').style.display = 'none';
+  document.getElementById('stat-period-label').textContent = getPeriodLabel(sport);
+  updateStats();
+  // Immediately fetch scoreboard for the new sport
+  fetchScoreboard();
+}
+
+// ── WebSocket ──────────────────────────────────────────
+function connect() {
+  if (ws && ws.readyState <= 1) return;
+
+  ws = new WebSocket(WS_URL);
+
+  ws.onopen = () => {
+    console.log('WebSocket connected');
+    document.getElementById('dot-ws').classList.remove('off');
+    document.getElementById('pipe-ws').textContent = 'connected';
+    document.getElementById('badge-live').style.display = '';
+    reconnectBackoff = 3000; // reset
+  };
+
+  ws.onmessage = (evt) => {
+    try {
+      const data = JSON.parse(evt.data);
+      const msgSport = data.sport || activeSport;
+      if (msgSport === activeSport || activeSport === 'all') {
+        addCommentary(data);
+      }
+    } catch (e) { console.error('Parse error:', e); }
+  };
+
+  ws.onclose = () => {
+    document.getElementById('dot-ws').classList.add('off');
+    document.getElementById('pipe-ws').textContent = 'reconnecting…';
+    setTimeout(connect, reconnectBackoff);
+    reconnectBackoff = Math.min(reconnectBackoff * 1.5, 30000); // exponential backoff
+  };
+
+  ws.onerror = () => ws.close();
+}
+
+// ── REST fallback ──────────────────────────────────────
+async function fetchREST() {
+  try {
+    const resp = await fetch(`${API_BASE}/commentary`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (data.items && data.items.length > 0) {
+      const existingPlays = new Set(items.map(i => i.play));
+      for (const item of data.items) {
+        const msgSport = item.sport || activeSport;
+        if ((msgSport === activeSport || activeSport === 'all') && !existingPlays.has(item.play)) {
+          addCommentary(item, false);
+        }
+      }
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// ── Health check (pipeline status) ─────────────────────
+async function checkHealth() {
+  try {
+    const resp = await fetch(`${API_BASE}/health`);
+    if (resp.ok) {
+      const data = await resp.json();
+      document.getElementById('pipe-ws').textContent = `${data.connections || 0} client(s)`;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// ── Live score polling (every 5s) ─────────────────────
+async function fetchLiveScore() {
+  try {
+    const resp = await fetch(`${API_BASE}/games/live?sport=${activeSport}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const games = data.games || [];
+    if (games.length === 0) return;
+
+    const g = games[0]; // primary live game
+    const card = document.getElementById('score-card');
+    card.style.display = '';
+
+    document.getElementById('away-name').textContent = g.away_team || 'Away';
+    document.getElementById('home-name').textContent = g.home_team || 'Home';
+    document.getElementById('away-score').textContent = g.away_score || '0';
+    document.getElementById('home-score').textContent = g.home_score || '0';
+
+    const awayLogo = document.getElementById('away-logo');
+    const homeLogo = document.getElementById('home-logo');
+    awayLogo.style.background = getTeamColor(g.away_team || '');
+    homeLogo.style.background = getTeamColor(g.home_team || '');
+    awayLogo.textContent = getTeamAbbr(g.away_team || 'AWY');
+    homeLogo.textContent = getTeamAbbr(g.home_team || 'HME');
+
+    const sport = g.sport || activeSport;
+    const sportLabel = SPORT_LABELS[sport] || sport.toUpperCase();
+    document.getElementById('quarter-badge').textContent = formatQuarterBadge(g);
+    document.getElementById('score-time').textContent = getSportSeparator(sport);
+    document.getElementById('game-info').textContent = `${sportLabel} · Live`;
+
+    lastUpdateTime = new Date();
+  } catch (e) { /* ignore */ }
+}
+
+// ── Update stats display ───────────────────────────────
+function updateStats() {
+  document.getElementById('stat-plays').textContent = totalPlays;
+  document.getElementById('stat-scoring').textContent = totalPlays ? Math.round(scoringPlays / totalPlays * 100) + '%' : '0%';
+  document.getElementById('stat-comments').textContent = items.length;
+}
+
+// ── Add commentary item ────────────────────────────────
+function addCommentary(data, animate = true) {
+  lastUpdateTime = new Date();
+
+  // Auto-detect sport from first message
+  if (data.sport && totalPlays === 0) {
+    activeSport = data.sport;
+    document.getElementById('sport-select').value = activeSport;
+    document.getElementById('stat-period-label').textContent = getPeriodLabel(activeSport);
+  }
+
+  // Update score card
+  if (data.home_team) {
+    const card = document.getElementById('score-card');
+    card.style.display = '';
+
+    document.getElementById('away-name').textContent = data.away_team || 'Away';
+    document.getElementById('home-name').textContent = data.home_team || 'Home';
+    document.getElementById('away-score').textContent = data.away_score || '0';
+    document.getElementById('home-score').textContent = data.home_score || '0';
+
+    const awayLogo = document.getElementById('away-logo');
+    const homeLogo = document.getElementById('home-logo');
+    awayLogo.style.background = getTeamColor(data.away_team || '');
+    homeLogo.style.background = getTeamColor(data.home_team || '');
+    awayLogo.textContent = getTeamAbbr(data.away_team || 'AWY');
+    homeLogo.textContent = getTeamAbbr(data.home_team || 'HME');
+
+    const sport = data.sport || activeSport;
+    const sportLabel = SPORT_LABELS[sport] || sport.toUpperCase();
+    document.getElementById('quarter-badge').textContent = formatQuarterBadge(data);
+    document.getElementById('score-time').textContent = getSportSeparator(sport);
+    document.getElementById('game-info').textContent = `${sportLabel} · ${data.venue || 'Live'}`;
+  }
+
+  // Track stats
+  totalPlays++;
+  if (data.score_value) scoringPlays++;
+  document.getElementById('stat-period').textContent = data.period || '—';
+  updateStats();
+
+  // Remove empty state
+  const empty = document.getElementById('empty-state');
+  if (empty) empty.remove();
+
+  // Build commentary card
+  const cardEl = document.createElement('div');
+  const eventInfo = getEventInfo(data);
+  cardEl.className = `commentary-card ${eventInfo.cls}`;
+  if (!animate) cardEl.style.animation = 'none';
+
+  const badgeHtml = eventInfo.label
+    ? `<span class="event-badge ${eventInfo.cls}">${eventInfo.label}</span>`
+    : '';
+
+  cardEl.innerHTML = `
+    <div class="commentary-meta">
+      ${formatPeriod(data)}
+      ${badgeHtml}
+    </div>
+    <div class="commentary-text">${escapeHtml(data.commentary || '')}</div>
+    <div class="commentary-play">${escapeHtml(data.play || '')}</div>
+  `;
+
+  const list = document.getElementById('commentary-list');
+  list.insertBefore(cardEl, list.firstChild);
+
+  // Speak commentary aloud if audio is enabled
+  if (animate && data.commentary) {
+    speakCommentary(data.commentary);
+  }
+
+  // Trim old items
+  items.unshift(data);
+  while (list.children.length > MAX_ITEMS) {
+    list.removeChild(list.lastChild);
+    items.pop();
+  }
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── Fetch scoreboard (recent + upcoming) when no live data ──
+async function fetchScoreboard() {
+  if (items.length > 0) return; // already have data, skip
+
+  try {
+    const resp = await fetch(`${API_BASE}/games/scoreboard?sport=${activeSport}`);
+    if (!resp.ok) return;
+    const data = await resp.json();
+
+    const list = document.getElementById('commentary-list');
+    const empty = document.getElementById('empty-state');
+
+    const recent = data.recent || [];
+    const upcoming = data.upcoming || [];
+    const live = data.live || [];
+
+    if (recent.length === 0 && upcoming.length === 0 && live.length === 0) return;
+
+    // Clear empty state
+    if (empty) empty.remove();
+
+    let html = '';
+
+    // Live games without commentary
+    if (live.length > 0 && items.length === 0) {
+      html += '<div style="margin-bottom:1rem;"><div style="color:#4caf50; font-weight:600; font-size:0.95rem; margin-bottom:0.5rem;">🟢 Live Games — waiting for commentary...</div>';
+      for (const g of live) {
+        const sep = (g.sport || activeSport) === 'cricket' ? 'vs' : '@';
+        html += `<div class="commentary-card scoring" style="border-left:3px solid #4caf50;">
+          <div class="commentary-meta"><span class="event-badge scoring">LIVE</span> ${g.status_detail || ''}</div>
+          <div class="commentary-text">${escapeHtml(g.away_team || '')} ${g.away_score || '0'} ${sep} ${escapeHtml(g.home_team || '')} ${g.home_score || '0'}</div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+
+    // Recent results
+    if (recent.length > 0) {
+      html += '<div style="margin-bottom:1.5rem;"><div style="color:var(--orange); font-weight:600; font-size:0.95rem; margin-bottom:0.5rem;">📋 Recent Results</div>';
+      for (const g of recent.slice(0, 5)) {
+        const sep = (g.sport || activeSport) === 'cricket' ? 'vs' : '@';
+        const awayColor = getTeamColor(g.away_team || '');
+        const homeColor = getTeamColor(g.home_team || '');
+        html += `<div class="commentary-card" style="padding:0.75rem 1.25rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <div style="display:flex; align-items:center; gap:0.6rem;">
+              <div class="team-logo" style="background:${awayColor}; width:36px; height:36px; font-size:0.6rem;">${getTeamAbbr(g.away_team || '')}</div>
+              <div><div style="font-weight:600; font-size:0.9rem;">${escapeHtml(g.away_team || '')}</div><div style="font-size:1.3rem; font-weight:700;">${g.away_score || '0'}</div></div>
+            </div>
+            <div style="color:var(--muted); font-size:0.8rem;">${sep}</div>
+            <div style="display:flex; align-items:center; gap:0.6rem; flex-direction:row-reverse;">
+              <div class="team-logo" style="background:${homeColor}; width:36px; height:36px; font-size:0.6rem;">${getTeamAbbr(g.home_team || '')}</div>
+              <div style="text-align:right;"><div style="font-weight:600; font-size:0.9rem;">${escapeHtml(g.home_team || '')}</div><div style="font-size:1.3rem; font-weight:700;">${g.home_score || '0'}</div></div>
+            </div>
+          </div>
+          <div style="text-align:center; color:var(--muted); font-size:0.72rem; margin-top:0.4rem;">${g.status_detail || 'Final'}</div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+
+    // Upcoming matches
+    if (upcoming.length > 0) {
+      html += '<div style="margin-bottom:1.5rem;"><div style="color:var(--orange); font-weight:600; font-size:0.95rem; margin-bottom:0.5rem;">📅 Upcoming Matches</div>';
+      for (const g of upcoming.slice(0, 5)) {
+        const sep = (g.sport || activeSport) === 'cricket' ? 'vs' : '@';
+        const dateStr = g.date_display || g.status_detail || 'Scheduled';
+        html += `<div class="commentary-card" style="padding:0.6rem 1.25rem;">
+          <div style="display:flex; align-items:center; justify-content:space-between;">
+            <span style="font-weight:600; font-size:0.9rem;">${escapeHtml(g.away_team || '')}</span>
+            <span style="color:var(--muted); font-size:0.8rem;">${sep}</span>
+            <span style="font-weight:600; font-size:0.9rem;">${escapeHtml(g.home_team || '')}</span>
+          </div>
+          <div style="text-align:center; color:var(--orange); font-size:0.72rem; margin-top:0.3rem;">📅 ${dateStr}</div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+
+    if (html) {
+      list.innerHTML = html;
+    }
+  } catch (e) { /* ignore */ }
+}
+
+// ── Init ───────────────────────────────────────────────
+// Set dropdown to match activeSport
+document.getElementById('sport-select').value = activeSport;
+document.getElementById('stat-period-label').textContent = getPeriodLabel(activeSport);
+
+connect();
+setInterval(fetchREST, 5000);
+setInterval(checkHealth, 10000);
+// Live score updates every 5 seconds
+fetchLiveScore();
+setInterval(fetchLiveScore, 5000);
+// Fetch scoreboard on load and periodically (for when no live games)
+fetchScoreboard();
+setInterval(fetchScoreboard, 30000);
+</script>
+</body>
+</html>
