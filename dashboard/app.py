@@ -788,42 +788,42 @@ def live_feed():
                     hw = int(home_win)
                     aw = 100 - hw
                     win_prob_html = f'''
-                    <div style="margin-top:1.5rem; padding: 0 1rem;">
-                        <div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#888; margin-bottom:6px; font-weight:600;">
-                            <span>{aw}%</span>
-                            <span style="letter-spacing:1px; color:#555; font-size:0.65rem;">WIN PROBABILITY</span>
-                            <span>{hw}%</span>
-                        </div>
-                        <div style="display:flex; height:6px; border-radius:3px; overflow:hidden; background:#2a2d3e;">
-                            <div style="width:{aw}%; background:{away_color}; transition: width 0.5s ease;"></div>
-                            <div style="width:{hw}%; background:{home_color}; transition: width 0.5s ease;"></div>
-                        </div>
-                    </div>
-                    '''
+<div style="margin-top:1.5rem; padding: 0 1rem;">
+<div style="display:flex; justify-content:space-between; font-size:0.75rem; color:#888; margin-bottom:6px; font-weight:600;">
+<span>{aw}%</span>
+<span style="letter-spacing:1px; color:#555; font-size:0.65rem;">WIN PROBABILITY</span>
+<span>{hw}%</span>
+</div>
+<div style="display:flex; height:6px; border-radius:3px; overflow:hidden; background:#2a2d3e;">
+<div style="width:{aw}%; background:{away_color}; transition: width 0.5s ease;"></div>
+<div style="width:{hw}%; background:{home_color}; transition: width 0.5s ease;"></div>
+</div>
+</div>
+'''
                 except Exception:
                     pass
 
             st.markdown(f"""
-            <div class="score-card">
-                <div class="score-row">
-                    <div class="team-block">
-                        <div class="team-logo" style="background:{away_color};">{away_abbr}</div>
-                        <div class="team-name">{away_name}</div>
-                        <div class="team-score">{away_score}</div>
-                    </div>
-                    <div class="score-center">
-                        <div class="score-period">{period_label}</div>
-                        <div class="score-separator">{sep}</div>
-                    </div>
-                    <div class="team-block">
-                        <div class="team-logo" style="background:{home_color};">{home_abbr}</div>
-                        <div class="team-name">{home_name}</div>
-                        <div class="team-score">{home_score}</div>
-                    </div>
-                </div>
-                {win_prob_html}
-            </div>
-            """, unsafe_allow_html=True)
+<div class="score-card">
+<div class="score-row">
+<div class="team-block">
+<div class="team-logo" style="background:{away_color};">{away_abbr}</div>
+<div class="team-name">{away_name}</div>
+<div class="team-score">{away_score}</div>
+</div>
+<div class="score-center">
+<div class="score-period">{period_label}</div>
+<div class="score-separator">{sep}</div>
+</div>
+<div class="team-block">
+<div class="team-logo" style="background:{home_color};">{home_abbr}</div>
+<div class="team-name">{home_name}</div>
+<div class="team-score">{home_score}</div>
+</div>
+</div>
+{win_prob_html}
+</div>
+""", unsafe_allow_html=True)
 
         # ── Stats row ──
         total = st.session_state.total_plays
@@ -898,16 +898,16 @@ def live_feed():
                         pass
 
                 cards_html += f"""
-                <div class="commentary-card {event_class}">
-                    <div class="commentary-meta">
-                        {period_text}
-                        {badge_html}
-                        {hype_html}
-                    </div>
-                    <div class="commentary-text">{commentary}</div>
-                    <div class="commentary-play">{play}</div>
-                </div>
-                """
+<div class="commentary-card {event_class}">
+<div class="commentary-meta">
+{period_text}
+{badge_html}
+{hype_html}
+</div>
+<div class="commentary-text">{commentary}</div>
+<div class="commentary-play">{play}</div>
+</div>
+"""
 
             st.markdown(cards_html, unsafe_allow_html=True)
 
