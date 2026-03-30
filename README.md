@@ -50,12 +50,22 @@ Finally, the Native Web Dashboard receives the WebSocket payload in real time. I
 
 Follow these steps to launch the engine locally.
 
-Ensure you have your virtual environment activated and all Python requirements installed via pip.
+Ensure you have your virtual environment activated and all Python requirements installed via pip. It is highly recommended to use the generated `.venv` structure.
 
 Launch your Docker daemon and bring the Kafka cluster online using the docker compose command.
 
 Populate your environment variables with your chosen LLM provider credentials. 
 
-Run the ingestion producer, the context enricher, the commentator, and the unified server concurrently in separate terminal windows. 
+To execute the entire multi-process pipeline concurrently, simply run the master orchestration script using your python binary:
+```bash
+.venv/bin/python run_all.py
+```
 
 Navigate to your local host on port 8000 to enjoy the broadcast.
+
+## Testing
+
+The engine ships with a comprehensive Pytest suite covering all major parsing logic. You can validate the architecture continuously by executing:
+```bash
+.venv/bin/pytest tests/
+```
