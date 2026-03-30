@@ -1,5 +1,7 @@
 # Real Time AI Sports Commentary Engine
 
+Small note: this project was built with AI assistance as part of the development workflow.
+
 ## Project Summary
 
 Welcome to the Real Time AI Sports Commentary Engine. This project is a fully automated broadcasting system that monitors live sports games, understands the context of the plays, and generates dynamic and engaging commentary on the fly using Artificial Intelligence. By tapping into live box scores and play by play events, the system evaluates the game momentum and injects intelligent predictions, exactly like a real sports television broadcast. It even calculates a live home team win probability and assigns a hype score to every play to ensure the tone of the generated commentary perfectly matches the excitement on the court or field.
@@ -19,7 +21,7 @@ Let us break down the technology powering this application.
 
 Running a multi layered streaming architecture requires proper orchestration. Instead of running everything in a single script, we separate our logic into distinct microservices. 
 
-To keep the infrastructure simple, the message brokers (Kafka and Zookeeper) are containerized using Docker Desktop. You can spin them up instantly using the docker compose command. 
+To keep the infrastructure simple, the streaming layer runs in containers and the application services can be started either locally or via Docker Compose. 
 
 Once the data brokers are alive, you run four independent Python processes.
 
@@ -44,7 +46,7 @@ Next, the LLM Commentator picks up the enriched event. It builds an incredibly s
 
 Meanwhile, our FastAPI server sits in the background operating a background thread that constantly consumes that output topic. Whenever the LLM publishes new commentary, the API server catches it and immediately broadcasts it out over WebSockets to any connected clients.
 
-Finally, the Native Web Dashboard receives the WebSocket payload in real time. It updates the live score, seamlessly adjusts the animated win probability progress bar based on the incoming data, and pushes the new commentary card onto the top of the feed with appropriate color coding. 
+Finally, the Native Web Dashboard receives the WebSocket payload in real time. It updates the live score, seamlessly adjusts the animated win probability progress bar based on the incoming data, and pushes the new commentary card onto the top of the feed with appropriate color coding.
 
 ## Getting Started
 
@@ -62,6 +64,48 @@ To execute the entire multi-process pipeline concurrently, simply run the master
 ```
 
 Navigate to your local host on port 8000 to enjoy the broadcast.
+
+## Docker Image
+
+The application image is published on Docker Hub:
+
+[Docker Hub Repository](https://hub.docker.com/r/susil1103/ai-sports-commentary-engine)
+
+```bash
+docker pull susil1103/ai-sports-commentary-engine:latest
+```
+
+You can also pin a dated release tag when available:
+
+```bash
+docker pull susil1103/ai-sports-commentary-engine:2026-03-30
+```
+
+## Production Deployment
+
+The repository now includes a cost-friendly single-VM production setup built around:
+
+- `Caddy` as the HTTPS reverse proxy
+- `Redpanda` as the Kafka-compatible broker
+- `api`, `producer`, `enricher`, and `commentator` as separate containers
+- Docker Hub image: `susil1103/ai-sports-commentary-engine`
+
+Key files:
+
+- `docker-compose.prod.yml`
+- `deploy/Caddyfile`
+- `.env.production.example`
+- `docs/DEPLOY_VM.md`
+
+To deploy on a VM:
+
+```bash
+cp .env.production.example .env.production
+docker compose --env-file .env.production -f docker-compose.prod.yml pull
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d
+```
+
+The full VM deployment walkthrough lives in `docs/DEPLOY_VM.md`.
 
 ## Testing
 

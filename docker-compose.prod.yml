@@ -1,0 +1,116 @@
+services:
+  caddy:
+    image: caddy:2.8.4
+    container_name: commentary-caddy
+    depends_on:
+      - api
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    restart: unless-stopped
+
+  redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.2.18
+    container_name: commentary-redpanda
+    command:
+      - redpanda
+      - start
+      - --overprovisioned
+      - --smp
+      - "1"
+      - --memory
+      - "512M"
+      - --reserve-memory
+      - "0M"
+      - --node-id
+      - "0"
+      - --check=false
+      - --kafka-addr
+      - internal://0.0.0.0:9092
+      - --advertise-kafka-addr
+      - internal://redpanda:9092
+    volumes:
+      - redpanda_data:/var/lib/redpanda/data
+    restart: unless-stopped
+
+  producer:
+    image: susil1103/ai-sports-commentary-engine:latest
+    container_name: commentary-producer
+    command: python -m ingestion.producer
+    depends_on:
+      - redpanda
+    environment:
+      KAFKA_BOOTSTRAP: redpanda:9092
+      DATA_DIR: /data
+      SPORT: ${SPORT:-cricket}
+      CRICKET_LEAGUE: ${CRICKET_LEAGUE:-ipl}
+      CRICKET_LEAGUES: ${CRICKET_LEAGUES:-}
+      POLL_INTERVAL_SEC: ${POLL_INTERVAL_SEC:-10}
+      CRICKET_POLL_INTERVAL: ${CRICKET_POLL_INTERVAL:-30}
+      TOPIC_RAW_EVENTS: ${TOPIC_RAW_EVENTS:-game-events}
+      TOPIC_ENRICHED: ${TOPIC_ENRICHED:-enriched-events}
+      TOPIC_COMMENTARY: ${TOPIC_COMMENTARY:-commentary-output}
+      TOPIC_DLQ: ${TOPIC_DLQ:-commentary-dlq}
+    volumes:
+      - producer_data:/data
+    restart: unless-stopped
+
+  enricher:
+    image: susil1103/ai-sports-commentary-engine:latest
+    container_name: commentary-enricher
+    command: python -m streaming.enricher
+    depends_on:
+      - redpanda
+    environment:
+      KAFKA_BOOTSTRAP: redpanda:9092
+      SPORT: ${SPORT:-cricket}
+      TOPIC_RAW_EVENTS: ${TOPIC_RAW_EVENTS:-game-events}
+      TOPIC_ENRICHED: ${TOPIC_ENRICHED:-enriched-events}
+    restart: unless-stopped
+
+  commentator:
+    image: susil1103/ai-sports-commentary-engine:latest
+    container_name: commentary-llm
+    command: python -m llm.commentator
+    depends_on:
+      - redpanda
+      - enricher
+    environment:
+      KAFKA_BOOTSTRAP: redpanda:9092
+      COMMENTATOR_TOPIC: ${TOPIC_ENRICHED:-enriched-events}
+      TOPIC_COMMENTARY: ${TOPIC_COMMENTARY:-commentary-output}
+      TOPIC_DLQ: ${TOPIC_DLQ:-commentary-dlq}
+      LLM_PROVIDER: ${LLM_PROVIDER:-openai}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      SPORT: ${SPORT:-cricket}
+      COMMENTARY_STYLE: ${COMMENTARY_STYLE:-default}
+      TTS_ENGINE: "off"
+    restart: unless-stopped
+
+  api:
+    image: susil1103/ai-sports-commentary-engine:latest
+    container_name: commentary-api
+    command: uvicorn api.server:app --host 0.0.0.0 --port 8000
+    depends_on:
+      - redpanda
+    environment:
+      KAFKA_BOOTSTRAP: redpanda:9092
+      SPORT: ${SPORT:-cricket}
+      TOPIC_COMMENTARY: ${TOPIC_COMMENTARY:-commentary-output}
+      CORS_ORIGINS: ${CORS_ORIGINS}
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:
+  redpanda_data:
+  producer_data:

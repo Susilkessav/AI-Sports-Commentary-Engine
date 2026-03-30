@@ -345,7 +345,8 @@
 <!-- ── JavaScript ──────────────────────────────────────── -->
 <script>
 const API_BASE = window.location.origin;
-const WS_URL   = `ws://${window.location.host}/ws/commentary`;
+const WS_SCHEME = window.location.protocol === "https:" ? "wss" : "ws";
+const WS_URL   = `${WS_SCHEME}://${window.location.host}/ws/commentary`;
 const MAX_ITEMS = 30;
 
 let ws = null;
