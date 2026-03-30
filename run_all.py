@@ -5,8 +5,7 @@ Launch all pipeline components locally (without Docker):
   1. ESPN Producer (ingestion)
   2. Stream Enricher (Layer 3)
   3. LLM Commentator
-  4. FastAPI Server
-  5. Streamlit Dashboard
+  4. FastAPI Server & Dashboard UI
 
 Requires Kafka to be running (docker-compose up -d kafka zookeeper).
 """
@@ -50,20 +49,11 @@ p4 = subprocess.Popen(
 )
 processes.append(("API Server", p4))
 
-# 5. Streamlit Dashboard
-print("[5/5] Starting Streamlit Dashboard on port 8501...")
-p5 = subprocess.Popen(
-    [python_bin, "-m", streamlit_bin, "run", "dashboard/app.py", "--server.headless", "true"],
-    cwd=cwd, stdin=subprocess.DEVNULL,
-)
-processes.append(("Dashboard", p5))
-
 print("=" * 50)
 print("All components started!")
-print("  Dashboard: http://localhost:8501")
-print("  API:       http://localhost:8000")
-print("  API Docs:  http://localhost:8000/docs")
-print("  HTML UI:   http://localhost:8000/")
+print("  API Server:  http://localhost:8000")
+print("  API Docs:    http://localhost:8000/docs")
+print("  Dashboard:   http://localhost:8000/")
 print("\nPress Ctrl+C to stop all components.\n")
 
 

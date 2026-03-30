@@ -116,6 +116,22 @@
     }
     .stat-value { font-size: 1.3rem; font-weight: 700; }
     .stat-label { font-size: 0.7rem; color: var(--muted); margin-top: 0.15rem; text-transform: uppercase; letter-spacing: 0.5px; }
+    
+    /* ── Win Probability ───────────────────────────────── */
+    .win-prob-container {
+      margin-top: 1.25rem; border-top: 1px solid var(--border);
+      padding-top: 1.25rem; font-size: 0.8rem;
+    }
+    .win-prob-header {
+      display: flex; justify-content: space-between; margin-bottom: 0.5rem;
+      font-weight: 600; font-size: 0.85rem; color: var(--text);
+    }
+    .win-prob-bar {
+      width: 100%; height: 12px; background: #2a2d3e; border-radius: 999px;
+      overflow: hidden; display: flex;
+    }
+    .win-prob-away { height: 100%; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); }
+    .win-prob-home { height: 100%; transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1); background: #555; }
 
     /* ── Commentary section ────────────────────────────── */
     .section-header {
@@ -162,6 +178,13 @@
     .event-badge.scoring  { background: #153a15; color: #4caf50; }
     .event-badge.touchdown{ background: #3a2215; color: #ff6d00; }
     .event-badge.goal     { background: #15253a; color: #2196f3; }
+
+    /* Hype Badges */
+    .hype-badge {
+      display: inline-flex; align-items: center; gap: 0.25rem;
+      padding: 1px 8px; border-radius: 6px; font-size: 0.68rem; font-weight: 700;
+      text-transform: uppercase; border: 1px solid; margin-left: 0.5rem;
+    }
 
     .commentary-text {
       font-size: 1rem; font-weight: 500; line-height: 1.6;
@@ -260,6 +283,19 @@
       <div class="stat-box"><div class="stat-value" id="stat-scoring">0%</div><div class="stat-label">Scoring %</div></div>
       <div class="stat-box"><div class="stat-value" id="stat-period">—</div><div class="stat-label" id="stat-period-label">Period</div></div>
       <div class="stat-box"><div class="stat-value" id="stat-comments">0</div><div class="stat-label">In Feed</div></div>
+    </div>
+    
+    <!-- Win Probability Bar -->
+    <div class="win-prob-container" id="win-prob-container" style="display:none;">
+      <div class="win-prob-header">
+        <span id="win-prob-away-label">50%</span>
+        <span>Win Probability</span>
+        <span id="win-prob-home-label">50%</span>
+      </div>
+      <div class="win-prob-bar">
+        <div class="win-prob-away" id="win-prob-away" style="width: 50%;"></div>
+        <div class="win-prob-home" id="win-prob-home" style="width: 50%;"></div>
+      </div>
     </div>
   </div>
 
@@ -648,9 +684,38 @@ async function fetchLiveScore() {
     document.getElementById('quarter-badge').textContent = formatQuarterBadge(g);
     document.getElementById('score-time').textContent = getSportSeparator(sport);
     document.getElementById('game-info').textContent = `${sportLabel} · Live`;
+    
+    updateWinProbability(g);
 
     lastUpdateTime = new Date();
   } catch (e) { /* ignore */ }
+}
+
+// ── Update win probability ─────────────────────────────
+function updateWinProbability(data) {
+  if (data.home_win_prob !== undefined && data.home_win_prob !== null) {
+    const homeProb = parseFloat(data.home_win_prob);
+    if (!isNaN(homeProb)) {
+      const awayProb = 100 - homeProb;
+      const container = document.getElementById('win-prob-container');
+      container.style.display = 'block';
+      
+      const awayAbbr = getTeamAbbr(data.away_team || '');
+      const homeAbbr = getTeamAbbr(data.home_team || '');
+      
+      document.getElementById('win-prob-away-label').textContent = `${awayAbbr} ${awayProb.toFixed(1)}%`;
+      document.getElementById('win-prob-home-label').textContent = `${homeAbbr} ${homeProb.toFixed(1)}%`;
+      
+      const awayBar = document.getElementById('win-prob-away');
+      const homeBar = document.getElementById('win-prob-home');
+      
+      awayBar.style.width = `${awayProb}%`;
+      homeBar.style.width = `${homeProb}%`;
+      
+      awayBar.style.background = getTeamColor(data.away_team || '');
+      homeBar.style.background = getTeamColor(data.home_team || '');
+    }
+  }
 }
 
 // ── Update stats display ───────────────────────────────
@@ -693,6 +758,8 @@ function addCommentary(data, animate = true) {
     document.getElementById('quarter-badge').textContent = formatQuarterBadge(data);
     document.getElementById('score-time').textContent = getSportSeparator(sport);
     document.getElementById('game-info').textContent = `${sportLabel} · ${data.venue || 'Live'}`;
+    
+    updateWinProbability(data);
   }
 
   // Track stats
@@ -714,11 +781,24 @@ function addCommentary(data, animate = true) {
   const badgeHtml = eventInfo.label
     ? `<span class="event-badge ${eventInfo.cls}">${eventInfo.label}</span>`
     : '';
+    
+  let hypeHtml = '';
+  if (data.hype_score !== undefined && data.hype_score !== null) {
+    const score = parseInt(data.hype_score);
+    if (!isNaN(score)) {
+      let color = '#888', icon = '💬';
+      if (score >= 8) { color = '#ff3d00'; icon = '🔥🔥'; }
+      else if (score >= 5) { color = '#ff9800'; icon = '🔥'; }
+      else { color = '#2196f3'; icon = '🧊'; }
+      hypeHtml = `<span class="hype-badge" style="color:${color}; border-color:${color};">${icon} HYPE ${score}/10</span>`;
+    }
+  }
 
   cardEl.innerHTML = `
     <div class="commentary-meta">
       ${formatPeriod(data)}
       ${badgeHtml}
+      ${hypeHtml}
     </div>
     <div class="commentary-text">${escapeHtml(data.commentary || '')}</div>
     <div class="commentary-play">${escapeHtml(data.play || '')}</div>

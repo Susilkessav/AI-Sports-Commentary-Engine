@@ -11,8 +11,8 @@ Let us break down the technology powering this application.
 * Python: We use Python as the central programming language for all microservices, data extraction, and machine learning integrations.
 * Apache Kafka: This acts as the central central nervous system. It is a distributed event streaming platform that allows our independent scripts to publish and subscribe to data feeds concurrently without blocking each other.
 * Zookeeper: This operates alongside Kafka to manage the cluster metadata and maintain synchronization.
-* FastAPI: A blazing fast modern web framework we use to serve the API endpoints and maintain the persistent WebSocket connections to the browser.
-* Streamlit: Our customized frontend framework. It allows us to build beautiful, reactive data dashboards natively with Python.
+* FastAPI: A blazing fast modern web framework we use to serve both the API endpoints and the native web dashboard.
+* HTML and plain JS: Our customized frontend framework. It allows us to build beautiful, reactive data dashboards directly on top of the API server without external frameworks.
 * Large Language Models: The brain of the operation. By passing structured prompts to models like Anthropic Claude, OpenAI, or local Ollama deployments, we generate the actual commentary text and analytical data.
 
 ## Orchestration
@@ -26,7 +26,7 @@ Once the data brokers are alive, you run four independent Python processes.
 1. The Ingestion Engine.
 2. The Streaming Enricher.
 3. The LLM Commentator.
-4. The API Server and Streamlit Dashboard.
+4. The Unified API Server and Dashboard.
 
 This decoupled orchestration allows the system to scale infinitely. If you wanted to monitor ten games at once, you would simply spin up more ingestion producers without needing to restart the frontend dashboard or the API.
 
@@ -44,7 +44,7 @@ Next, the LLM Commentator picks up the enriched event. It builds an incredibly s
 
 Meanwhile, our FastAPI server sits in the background operating a background thread that constantly consumes that output topic. Whenever the LLM publishes new commentary, the API server catches it and immediately broadcasts it out over WebSockets to any connected clients.
 
-Finally, the Streamlit Dashboard receives the WebSocket payload in real time. It updates the live score, seamlessly adjusts the animated win probability progress bar based on the incoming data, and pushes the new commentary card onto the top of the feed with appropriate color coding. 
+Finally, the Native Web Dashboard receives the WebSocket payload in real time. It updates the live score, seamlessly adjusts the animated win probability progress bar based on the incoming data, and pushes the new commentary card onto the top of the feed with appropriate color coding. 
 
 ## Getting Started
 
@@ -56,6 +56,6 @@ Launch your Docker daemon and bring the Kafka cluster online using the docker co
 
 Populate your environment variables with your chosen LLM provider credentials. 
 
-Run the ingestion producer, the context enricher, the commentator, the server, and the dashboard concurrently in separate terminal windows. 
+Run the ingestion producer, the context enricher, the commentator, and the unified server concurrently in separate terminal windows. 
 
-Navigate to your local host on port 8501 to enjoy the broadcast.
+Navigate to your local host on port 8000 to enjoy the broadcast.
