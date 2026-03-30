@@ -817,7 +817,8 @@ class TestGetSystemPrompt:
         with patch("llm.commentator.SPORT", "cricket"):
             from llm.commentator import get_system_prompt, CRICKET_SYSTEM_PROMPT
             result = get_system_prompt()
-            assert result == CRICKET_SYSTEM_PROMPT
+            assert result.startswith(CRICKET_SYSTEM_PROMPT)
+            assert "valid JSON format" in result
 
     def test_cricket_prompt_contains_terminology(self):
         from llm.commentator import CRICKET_SYSTEM_PROMPT
@@ -829,7 +830,8 @@ class TestGetSystemPrompt:
         with patch("llm.commentator.SPORT", "nba"):
             from llm.commentator import get_system_prompt, SYSTEM_PROMPT
             result = get_system_prompt()
-            assert result == SYSTEM_PROMPT
+            assert result.startswith(SYSTEM_PROMPT)
+            assert "valid JSON format" in result
 
     def test_cricket_prompt_mentions_commentary_style(self):
         from llm.commentator import CRICKET_SYSTEM_PROMPT, COMMENTARY_STYLES
