@@ -500,7 +500,7 @@ function toggleAudio() {
     test.volume = 1.0;
     _pickVoice(test);
     speechSynthesis.speak(test);
-    // From now on, only NEW commentary arriving via WebSocket will be spoken
+    // From now on, NEW commentary arriving via WebSocket or REST will be spoken
   } else {
     btn.textContent = '🔇 Audio';
     btn.classList.remove('active');
@@ -808,8 +808,8 @@ function addCommentary(data, animate = true) {
   const list = document.getElementById('commentary-list');
   list.insertBefore(cardEl, list.firstChild);
 
-  // Speak commentary aloud if audio is enabled
-  if (animate && data.commentary) {
+  // Speak commentary aloud if audio is enabled (works for both WS and REST-fetched items)
+  if (audioEnabled && data.commentary) {
     speakCommentary(data.commentary);
   }
 

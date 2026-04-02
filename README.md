@@ -2,6 +2,12 @@
 
 Small note: this project was built with AI assistance as part of the development workflow.
 
+## Demo
+
+[![Watch the demo](https://img.shields.io/badge/Demo-Google%20Drive-blue?logo=googledrive)](https://drive.google.com/file/d/17V9X-tt783Tmfb2-Nak_xjcxhlRymPJB/view?usp=sharing)
+
+▶️ [Watch the full demo video on Google Drive](https://drive.google.com/file/d/17V9X-tt783Tmfb2-Nak_xjcxhlRymPJB/view?usp=sharing)
+
 ## Project Summary
 
 Welcome to the Real Time AI Sports Commentary Engine. This project is a fully automated broadcasting system that monitors live sports games, understands the context of the plays, and generates dynamic and engaging commentary on the fly using Artificial Intelligence. By tapping into live box scores and play by play events, the system evaluates the game momentum and injects intelligent predictions, exactly like a real sports television broadcast. It even calculates a live home team win probability and assigns a hype score to every play to ensure the tone of the generated commentary perfectly matches the excitement on the court or field.
